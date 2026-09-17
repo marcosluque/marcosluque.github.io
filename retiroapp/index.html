@@ -394,7 +394,7 @@
   </main>
 
   <footer class="notes">
-    <p><strong>Cómo se calcula el retiro.</strong> Año 1: se retira el 3,5% de la cartera inicial. Desde el año 2: si el 2,5% del valor actual supera al retiro base (revalorizado con la inflación acumulada) se sube el retiro a esa cifra; si el 3,5% del valor actual queda por debajo del retiro base revalorizado, se baja al mayor entre ese 3,5% y el suelo revalorizado; en cualquier otro caso se mantiene el retiro base revalorizado. Como todo se expresa en poder adquisitivo real, "revalorizar con la inflación" no cambia el importe real: el retiro base y el suelo se mantienen constantes en euros de poder adquisitivo del año 1, y solo cambian cuando entra en juego el techo o el suelo.</p>
+    <p id="footer-withdrawal-note"><strong>Cómo se calcula el retiro.</strong></p>
     <p><strong>Rebalanceo vs. cubos.</strong> Con rebalanceo, la cartera vuelve cada año a los pesos objetivo antes de calcular el retiro. Con cubos, cada activo evoluciona por su cuenta y el retiro se saca de un activo cada vez, en un orden que depende de si el S&amp;P 500 subió o bajó el año anterior: en años buenos se vende primero renta variable (acciones → bonos → oro → monetario); en años malos, al revés, protegiendo la renta variable.</p>
     <p><strong>Datos.</strong> S&amp;P 500, bono a 10 años, letras del Tesoro (monetario) y oro: Aswath Damodaran (NYU Stern). Inflación: CPI-U, BLS. 98 años (1928–2025), EE. UU. — mercado con mejor desempeño relativo del siglo XX; no representa lo ocurrido en mercados como Japón o Alemania en el mismo periodo. Cada cohorte se simula tantos años como datos hay disponibles hasta 2025, así que las que empiezan en la década de 2010 y 2020 aparecen con líneas cortas: son pocos años, no un mal resultado.</p>
   </footer>
@@ -597,6 +597,25 @@
   /* ---------------- formato es-ES ---------------- */
   var fmt0 = new Intl.NumberFormat('es-ES', { maximumFractionDigits:0 });
   var fmt1 = new Intl.NumberFormat('es-ES', { minimumFractionDigits:1, maximumFractionDigits:1 });
+  var fmtPct = new Intl.NumberFormat('es-ES', { maximumFractionDigits:1 });
+
+  /* ---------------- nota del pie (dinámica) ---------------- */
+  var footerNoteEl = document.getElementById('footer-withdrawal-note');
+  function updateFooterNote(rb, rs){
+    var rbTxt = fmtPct.format(rb) + '%';
+    var rsTxt = fmtPct.format(rs) + '%';
+    footerNoteEl.innerHTML =
+      '<strong>Cómo se calcula el retiro.</strong> ' +
+      'Año 1: se retira el ' + rbTxt + ' de la cartera inicial. ' +
+      'Desde el año 2: si el ' + rsTxt + ' del valor actual supera al retiro base ' +
+      '(revalorizado con la inflación acumulada) se sube el retiro a esa cifra; ' +
+      'si el ' + rbTxt + ' del valor actual queda por debajo del retiro base revalorizado, ' +
+      'se baja al mayor entre ese ' + rbTxt + ' y el suelo revalorizado; ' +
+      'en cualquier otro caso se mantiene el retiro base revalorizado. ' +
+      'Como todo se expresa en poder adquisitivo real, "revalorizar con la inflación" no cambia el importe real: ' +
+      'el retiro base y el suelo se mantienen constantes en euros de poder adquisitivo del año 1, ' +
+      'y solo cambian cuando entra en juego el techo o el suelo.';
+  }
 
   /* ---------------- gráfico ---------------- */
   var svg = document.getElementById('chart');
@@ -857,6 +876,7 @@
       var cohorts = runAll(p);
       render(cohorts);
       renderStats(cohorts);
+      updateFooterNote(p.rb, p.rs);
       persist(p);
     });
   }
