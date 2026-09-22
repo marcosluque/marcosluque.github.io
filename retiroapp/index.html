@@ -145,6 +145,7 @@
     text-align:right;
     font-family:'IBM Plex Mono', monospace;
   }
+  .alloc-total.mismatch{ color: var(--accent-danger); font-weight:600; }
 
   .num-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:11px; }
   .num-row label{ font-size:0.82rem; color:var(--text); }
@@ -314,7 +315,7 @@
 
       <div class="ctrl-group">
         <p class="ctrl-title">Composición de la cartera</p>
-        <p class="ctrl-hint">Arrastra un activo y los demás se reajustan para sumar 100%.</p>
+        <p class="ctrl-hint">Cada barra se mueve de forma independiente. Si la suma no es 100%, verás un aviso debajo.</p>
         <div class="alloc-row">
           <label for="w-stocks">Acciones</label>
           <input type="range" id="w-stocks" min="0" max="100" step="1" value="70">
@@ -335,6 +336,8 @@
           <input type="range" id="w-gold" min="0" max="100" step="1" value="0">
           <span class="alloc-val" id="w-gold-val">0%</span>
         </div>
+        <p class="alloc-total" id="alloc-total">Total: 100%</p>
+        <p class="warn" id="alloc-warning"></p>
         <p class="gold-caveat" id="gold-caveat">El oro estuvo a precio fijo (Bretton Woods) hasta 1971. Las cohortes que empiezan antes de esa fecha no reflejan un mercado libre para ese activo.</p>
       </div>
 
@@ -494,65 +497,31 @@
   var sliderEl = { stocks: document.getElementById('w-stocks'), bonds: document.getElementById('w-bonds'), cash: document.getElementById('w-cash'), gold: document.getElementById('w-gold') };
   var valEl = { stocks: document.getElementById('w-stocks-val'), bonds: document.getElementById('w-bonds-val'), cash: document.getElementById('w-cash-val'), gold: document.getElementById('w-gold-val') };
 
-  // Reparte el 100% entre los cuatro activos garantizando que la suma sea
-  // exactamente 100. Usa el método del resto mayor (Hamilton) para evitar
-  // que los errores de redondeo acumulados hagan que la suma se desvíe.
-  function redistribute(changedKey, newValue){
-    newValue = Math.max(0, Math.min(100, Math.round(newValue)));
-    var others = order4.filter(function(k){ return k !== changedKey; });
-    var old = {};
-    order4.forEach(function(k){ old[k] = weights[k]; });
-    var oldOthersSum = others.reduce(function(s,k){ return s + old[k]; }, 0);
-
-    weights[changedKey] = newValue;
-    var targetTotal = 100 - newValue;
-
-    if (targetTotal === 0){
-      others.forEach(function(k){ weights[k] = 0; });
-      return;
-    }
-
-    // 1) Calcular la parte entera proporcional de cada uno de los "otros".
-    //    Se trabaja con numeradores y denominadores enteros para evitar
-    //    imprecisiones de coma flotante.
-    var parts = [];
-    var totalFloor = 0;
-    others.forEach(function(k){
-      var num, den;
-      if (oldOthersSum <= 0){
-        num = targetTotal;
-        den = others.length;
-      } else {
-        num = old[k] * targetTotal;
-        den = oldOthersSum;
-      }
-      var f = Math.floor(num / den);
-      var remainder = num - f * den;
-      parts.push({ k: k, floor: f, rem: remainder });
-      totalFloor += f;
-    });
-
-    // 2) Repartir los "huecos" que quedan hasta targetTotal, dando prioridad
-    //    a los que tenían mayor resto. Garantiza suma exacta = targetTotal.
-    var extra = targetTotal - totalFloor;
-    parts.sort(function(a,b){ return b.rem - a.rem; });
-    parts.forEach(function(o){ weights[o.k] = o.floor; });
-    for (var i = 0; i < extra && i < parts.length; i++){
-      weights[parts[i].k] += 1;
-    }
-  }
-
   function syncSliders(){
     order4.forEach(function(k){
       sliderEl[k].value = weights[k];
       valEl[k].textContent = weights[k] + '%';
     });
     document.getElementById('gold-caveat').classList.toggle('show', weights.gold > 0);
+
+    var total = weights.stocks + weights.bonds + weights.cash + weights.gold;
+    var totalEl = document.getElementById('alloc-total');
+    var warnEl = document.getElementById('alloc-warning');
+    totalEl.textContent = 'Total: ' + total + '%';
+    if (total !== 100){
+      totalEl.classList.add('mismatch');
+      warnEl.textContent = 'La suma de los pesos es ' + total + '%. Debe ser 100% para que la simulación sea correcta.';
+      warnEl.classList.add('show');
+    } else {
+      totalEl.classList.remove('mismatch');
+      warnEl.textContent = '';
+      warnEl.classList.remove('show');
+    }
   }
 
   order4.forEach(function(k){
     sliderEl[k].addEventListener('input', function(){
-      redistribute(k, Number(sliderEl[k].value));
+      weights[k] = Number(sliderEl[k].value);
       syncSliders();
       recompute();
     });
@@ -909,8 +878,6 @@
       if (!p) return;
       if (typeof p.wS === 'number'){
         weights = { stocks:p.wS, bonds:p.wB, cash:p.wC, gold:p.wG };
-        var sum = weights.stocks+weights.bonds+weights.cash+weights.gold;
-        if (Math.abs(sum-100) > 0.5) return; // datos corruptos, ignorar
       }
       if (typeof p.rb === 'number') rbInput.value = p.rb;
       if (typeof p.rs === 'number') rsInput.value = p.rs;
