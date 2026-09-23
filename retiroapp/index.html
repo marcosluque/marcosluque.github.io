@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Simulador de retiro — techo y suelo sobre 98 cohortes (1928–2025)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -66,7 +66,10 @@
     color:var(--text);
     font-family:'Inter',system-ui,sans-serif;
     -webkit-font-smoothing:antialiased;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
+  html{ scroll-padding-top: env(safe-area-inset-top, 0px); }
   ::selection{ background: var(--accent-ceiling); color:#fff; }
 
   .wrap{ max-width:1240px; margin:0 auto; padding: 28px 20px 60px; }
@@ -130,22 +133,40 @@
     font-size:0.82rem;
     color:var(--text);
   }
-  .alloc-row input[type=range]{ flex:1; accent-color: var(--accent-floor); }
+  .alloc-row input[type=number]{
+    width:60px;
+    flex-shrink:0;
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    border-radius:6px;
+    color:var(--text);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:0.82rem;
+    padding:5px 6px;
+    text-align:right;
+  }
+  .alloc-row input[type=number]:focus{ outline:2px solid var(--accent-floor); outline-offset:1px; }
+  .bar-track{
+    flex:1;
+    min-width:0;
+    height:6px;
+    border-radius:3px;
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    overflow:hidden;
+  }
+  .bar-fill{
+    height:100%;
+    width:0%;
+    background:var(--accent-floor);
+  }
   .alloc-val{
-    width:44px; text-align:right;
+    width:50px; text-align:right;
     font-family:'IBM Plex Mono', monospace;
     font-size:0.82rem;
     color:var(--text-muted);
     flex-shrink:0;
   }
-  .alloc-total{
-    margin-top:6px;
-    font-size:0.74rem;
-    color:var(--text-muted);
-    text-align:right;
-    font-family:'IBM Plex Mono', monospace;
-  }
-  .alloc-total.mismatch{ color: var(--accent-danger); font-weight:600; }
 
   .num-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:11px; }
   .num-row label{ font-size:0.82rem; color:var(--text); }
@@ -315,28 +336,31 @@
 
       <div class="ctrl-group">
         <p class="ctrl-title">Composición de la cartera</p>
-        <p class="ctrl-hint">Cada barra se mueve de forma independiente. Si la suma no es 100%, verás un aviso debajo.</p>
+        <p class="ctrl-hint">Escribe un número para cada activo — puede ser cualquier cantidad, como 50 o 5000 — y el porcentaje se calcula solo. Las barras son solo visuales.</p>
         <div class="alloc-row">
           <label for="w-stocks">Acciones</label>
-          <input type="range" id="w-stocks" min="0" max="100" step="1" value="70">
+          <input type="number" id="w-stocks" min="0" step="1" value="70" inputmode="decimal">
+          <div class="bar-track"><div class="bar-fill" id="w-stocks-bar"></div></div>
           <span class="alloc-val" id="w-stocks-val">70%</span>
         </div>
         <div class="alloc-row">
           <label for="w-bonds">Bonos</label>
-          <input type="range" id="w-bonds" min="0" max="100" step="1" value="0">
+          <input type="number" id="w-bonds" min="0" step="1" value="0" inputmode="decimal">
+          <div class="bar-track"><div class="bar-fill" id="w-bonds-bar"></div></div>
           <span class="alloc-val" id="w-bonds-val">0%</span>
         </div>
         <div class="alloc-row">
           <label for="w-cash">Monetario</label>
-          <input type="range" id="w-cash" min="0" max="100" step="1" value="30">
+          <input type="number" id="w-cash" min="0" step="1" value="30" inputmode="decimal">
+          <div class="bar-track"><div class="bar-fill" id="w-cash-bar"></div></div>
           <span class="alloc-val" id="w-cash-val">30%</span>
         </div>
         <div class="alloc-row">
           <label for="w-gold">Oro</label>
-          <input type="range" id="w-gold" min="0" max="100" step="1" value="0">
+          <input type="number" id="w-gold" min="0" step="1" value="0" inputmode="decimal">
+          <div class="bar-track"><div class="bar-fill" id="w-gold-bar"></div></div>
           <span class="alloc-val" id="w-gold-val">0%</span>
         </div>
-        <p class="alloc-total" id="alloc-total">Total: 100%</p>
         <p class="warn" id="alloc-warning"></p>
         <p class="gold-caveat" id="gold-caveat">El oro estuvo a precio fijo (Bretton Woods) hasta 1971. Las cohortes que empiezan antes de esa fecha no reflejan un mercado libre para ese activo.</p>
       </div>
@@ -494,35 +518,60 @@
   /* ---------------- estado y controles ---------------- */
   var weights = { stocks:70, bonds:0, cash:30, gold:0 };
   var order4 = ['stocks','bonds','cash','gold'];
-  var sliderEl = { stocks: document.getElementById('w-stocks'), bonds: document.getElementById('w-bonds'), cash: document.getElementById('w-cash'), gold: document.getElementById('w-gold') };
+  var inputEl = { stocks: document.getElementById('w-stocks'), bonds: document.getElementById('w-bonds'), cash: document.getElementById('w-cash'), gold: document.getElementById('w-gold') };
+  var barEl = { stocks: document.getElementById('w-stocks-bar'), bonds: document.getElementById('w-bonds-bar'), cash: document.getElementById('w-cash-bar'), gold: document.getElementById('w-gold-bar') };
   var valEl = { stocks: document.getElementById('w-stocks-val'), bonds: document.getElementById('w-bonds-val'), cash: document.getElementById('w-cash-val'), gold: document.getElementById('w-gold-val') };
 
-  function syncSliders(){
+  // A partir de los números que se escriban (cualquier magnitud: 50, 5000...)
+  // se calcula qué porcentaje del total representa cada activo.
+  function computePercents(){
+    var total = weights.stocks + weights.bonds + weights.cash + weights.gold;
+    if (total <= 0){
+      return { stocks:0, bonds:0, cash:0, gold:0, total:total };
+    }
+    return {
+      stocks: weights.stocks/total*100,
+      bonds: weights.bonds/total*100,
+      cash: weights.cash/total*100,
+      gold: weights.gold/total*100,
+      total: total
+    };
+  }
+
+  // Actualiza barras, porcentajes y aviso, sin tocar lo que el usuario
+  // esté escribiendo en las casillas.
+  function updateDerived(){
+    var pct = computePercents();
     order4.forEach(function(k){
-      sliderEl[k].value = weights[k];
-      valEl[k].textContent = weights[k] + '%';
+      barEl[k].style.width = pct[k] + '%';
+      valEl[k].textContent = fmtPct.format(pct[k]) + '%';
     });
     document.getElementById('gold-caveat').classList.toggle('show', weights.gold > 0);
 
-    var total = weights.stocks + weights.bonds + weights.cash + weights.gold;
-    var totalEl = document.getElementById('alloc-total');
     var warnEl = document.getElementById('alloc-warning');
-    totalEl.textContent = 'Total: ' + total + '%';
-    if (total !== 100){
-      totalEl.classList.add('mismatch');
-      warnEl.textContent = 'La suma de los pesos es ' + total + '%. Debe ser 100% para que la simulación sea correcta.';
+    if (pct.total <= 0){
+      warnEl.textContent = 'Introduce al menos un número mayor que 0 para calcular los pesos.';
       warnEl.classList.add('show');
     } else {
-      totalEl.classList.remove('mismatch');
       warnEl.textContent = '';
       warnEl.classList.remove('show');
     }
   }
 
+  // Sincroniza también las casillas (usar solo tras cambios externos:
+  // restablecer valores o restaurar desde el navegador).
+  function syncSliders(){
+    order4.forEach(function(k){
+      inputEl[k].value = weights[k];
+    });
+    updateDerived();
+  }
+
   order4.forEach(function(k){
-    sliderEl[k].addEventListener('input', function(){
-      weights[k] = Number(sliderEl[k].value);
-      syncSliders();
+    inputEl[k].addEventListener('input', function(){
+      var v = parseFloat(inputEl[k].value);
+      weights[k] = (isNaN(v) || v < 0) ? 0 : v;
+      updateDerived();
       recompute();
     });
   });
@@ -570,8 +619,10 @@
   });
 
   function currentParams(){
+    var pct = computePercents();
     return {
-      wS: weights.stocks, wB: weights.bonds, wC: weights.cash, wG: weights.gold,
+      wS: pct.stocks, wB: pct.bonds, wC: pct.cash, wG: pct.gold,
+      rawStocks: weights.stocks, rawBonds: weights.bonds, rawCash: weights.cash, rawGold: weights.gold,
       rb: Number(rbInput.value) || 0,
       rs: Number(rsInput.value) || 0,
       fee: Number(feeInput.value) || 0,
@@ -876,7 +927,9 @@
       if (!raw) return;
       var p = JSON.parse(raw);
       if (!p) return;
-      if (typeof p.wS === 'number'){
+      if (typeof p.rawStocks === 'number'){
+        weights = { stocks:p.rawStocks, bonds:p.rawBonds, cash:p.rawCash, gold:p.rawGold };
+      } else if (typeof p.wS === 'number'){
         weights = { stocks:p.wS, bonds:p.wB, cash:p.wC, gold:p.wG };
       }
       if (typeof p.rb === 'number') rbInput.value = p.rb;
