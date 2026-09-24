@@ -276,19 +276,57 @@
   .tooltip b{ font-family:'IBM Plex Mono', monospace; font-weight:600; }
   .chart-wrap{ position:relative; }
 
+  /* ---- legend (modificada) ---- */
   .legend{
-    display:flex; align-items:center; gap:10px;
+    display:flex; align-items:center; gap:14px;
     margin-top:8px; padding-top:12px; border-top:1px solid var(--border);
     flex-wrap:wrap;
   }
+  .legend-block{ display:flex; flex-direction:column; gap:2px; }
   .legend .bar{
-    width:180px; height:8px; border-radius:4px;
+    width:280px; height:8px; border-radius:4px;
     background: linear-gradient(90deg, var(--chart-danger), var(--chart-neutral) 50%, var(--chart-growth));
   }
-  .legend .labels{ display:flex; justify-content:space-between; width:180px; font-size:0.68rem; color:var(--text-muted); font-family:'IBM Plex Mono', monospace; }
-  .legend-block{ display:flex; flex-direction:column; gap:3px; }
-  .legend-extra{ font-size:0.72rem; color:var(--text-muted); margin-left:auto; }
-  .legend-extra .dot{ display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--chart-danger); margin-right:4px; }
+  .legend .labels{
+    position:relative;
+    width:280px;
+    height:18px;
+    margin-top:2px;
+    font-size:0.66rem;
+    color:var(--text-muted);
+    font-family:'IBM Plex Mono', monospace;
+  }
+  .legend .labels span{
+    position:absolute;
+    top:6px;
+    white-space:nowrap;
+  }
+  .legend .labels span::before{
+    content:'';
+    position:absolute;
+    top:-4px;
+    left:50%;
+    width:1px;
+    height:3px;
+    background:var(--border);
+    transform:translateX(-50%);
+  }
+  .legend .labels span:nth-child(1){ left:0; transform:none; }
+  .legend .labels span:nth-child(1)::before{ left:0; transform:none; }
+  .legend .labels span:nth-child(2){ left:25%; transform:translateX(-50%); }
+  .legend .labels span:nth-child(3){ left:50%; transform:translateX(-50%); }
+  .legend .labels span:nth-child(4){ left:75%; transform:translateX(-50%); }
+  .legend .labels span:nth-child(5){ left:100%; transform:translateX(-100%); }
+  .legend .labels span:nth-child(5)::before{ left:100%; transform:translateX(-100%); }
+  .legend-extra{
+    display:flex; flex-direction:column; gap:3px;
+    font-size:0.72rem; color:var(--text-muted); margin-left:auto;
+  }
+  .legend-extra .dot{
+    display:inline-block; width:7px; height:7px; border-radius:50%;
+    background:var(--chart-danger); margin-right:4px;
+  }
+
   .gold-caveat{
     font-size:0.72rem; color:var(--text-muted); margin-top:10px; line-height:1.5;
     display:none;
@@ -409,10 +447,19 @@
         </div>
         <div class="legend">
           <div class="legend-block">
-            <div class="bar"></div>
-            <div class="labels"><span>agotada</span><span>= inicio</span><span>crece ×4+</span></div>
+            <div class="bar" aria-hidden="true"></div>
+            <div class="labels" aria-hidden="true">
+              <span>agotada</span>
+              <span>×0,5</span>
+              <span>×1</span>
+              <span>×2</span>
+              <span>×4+</span>
+            </div>
           </div>
-          <span class="legend-extra"><span class="dot"></span>punto de agotamiento</span>
+          <div class="legend-extra">
+            <span><span class="dot"></span>punto de agotamiento</span>
+            <span>×N = múltiplo del capital inicial al final</span>
+          </div>
         </div>
       </div>
 
@@ -522,8 +569,6 @@
   var barEl = { stocks: document.getElementById('w-stocks-bar'), bonds: document.getElementById('w-bonds-bar'), cash: document.getElementById('w-cash-bar'), gold: document.getElementById('w-gold-bar') };
   var valEl = { stocks: document.getElementById('w-stocks-val'), bonds: document.getElementById('w-bonds-val'), cash: document.getElementById('w-cash-val'), gold: document.getElementById('w-gold-val') };
 
-  // A partir de los números que se escriban (cualquier magnitud: 50, 5000...)
-  // se calcula qué porcentaje del total representa cada activo.
   function computePercents(){
     var total = weights.stocks + weights.bonds + weights.cash + weights.gold;
     if (total <= 0){
@@ -538,8 +583,6 @@
     };
   }
 
-  // Actualiza barras, porcentajes y aviso, sin tocar lo que el usuario
-  // esté escribiendo en las casillas.
   function updateDerived(){
     var pct = computePercents();
     order4.forEach(function(k){
@@ -558,8 +601,6 @@
     }
   }
 
-  // Sincroniza también las casillas (usar solo tras cambios externos:
-  // restablecer valores o restaurar desde el navegador).
   function syncSliders(){
     order4.forEach(function(k){
       inputEl[k].value = weights[k];
@@ -645,8 +686,8 @@
       'Año 1: se retira el ' + rbTxt + ' de la cartera inicial. ' +
       'Desde el año 2: si el ' + rsTxt + ' del valor actual supera al retiro base ' +
       '(revalorizado con la inflación acumulada) se sube el retiro a esa cifra; ' +
-      'si el ' + rbTxt + ' del valor actual queda por debajo del retiro base revalorizado, ' +
-      'se baja al mayor entre ese ' + rbTxt + ' y el suelo revalorizado; ' +
+      'si el ' + rbTxt + '% del valor actual queda por debajo del retiro base revalorizado, ' +
+      'se baja al mayor entre ese ' + rbTxt + '% y el suelo revalorizado; ' +
       'en cualquier otro caso se mantiene el retiro base revalorizado. ' +
       'Como todo se expresa en poder adquisitivo real, "revalorizar con la inflación" no cambia el importe real: ' +
       'el retiro base y el suelo se mantienen constantes en euros de poder adquisitivo del año 1, ' +
@@ -679,11 +720,17 @@
   var COL_NEUTRAL = getComputedStyle(document.documentElement).getPropertyValue('--chart-neutral').trim() || '#8D9A92';
   var COL_GROWTH = getComputedStyle(document.documentElement).getPropertyValue('--chart-growth').trim() || '#276F5C';
 
+  // Mapeo color↔múltiplo (coincide con la leyenda):
+  //   ratio ≤0,25 (o agotada) → extremo izquierdo (danger)
+  //   ratio 0,5   → 25% del degradado
+  //   ratio 1     → 50% (neutro)
+  //   ratio 2     → 75%
+  //   ratio 4+    → extremo derecho (growth)
   function cohortColor(cohort){
     if (cohort.depleted) return COL_DANGER;
     var ratio = cohort.path[cohort.path.length-1] / 100;
     if (ratio <= 0) return COL_DANGER;
-    var t = clamp(Math.log2(ratio) / 2, -1, 1); // log2(4)=2 -> full growth color by 4x
+    var t = clamp(Math.log2(ratio) / 2, -1, 1);
     if (t <= 0) return mix(COL_DANGER, COL_NEUTRAL, t+1);
     return mix(COL_NEUTRAL, COL_GROWTH, t);
   }
@@ -721,7 +768,6 @@
     }
     currentScale = { xS:xS, yS:yS, maxOffset:maxOffset, floor:floor, ceiling:ceiling };
 
-    // gridlines horizontales
     gridVals.forEach(function(v){
       var y = yS(v);
       var line = document.createElementNS(SVGNS,'line');
@@ -736,7 +782,6 @@
       svg.appendChild(lbl);
     });
 
-    // eje x: marcas cada 10 años
     for (var xt=0; xt<=maxOffset; xt += 10){
       var xx = xS(xt);
       var tick = document.createElementNS(SVGNS,'line');
@@ -763,7 +808,6 @@
     yTitle.textContent = 'Capital real (base 100 = año 1)';
     svg.appendChild(yTitle);
 
-    // líneas de cohortes
     cohorts.forEach(function(c, idx){
       var d = '';
       c.path.forEach(function(v, i){
